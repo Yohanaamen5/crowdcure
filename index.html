@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrowdCure - AI-Powered Triage</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse-custom {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .severity-marker {
+            position: absolute;
+            top: -25px;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: #4b5563;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Main Container -->
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-blue-600 mb-2">CrowdCure</h1>
+            <p class="text-lg text-gray-600">AI-Powered Symptom Triage and Care Recommendation</p>
+            <div class="mt-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
+                <p><strong>Warning:</strong> This tool is not a replacement for professional medical advice, diagnosis, or treatment.</p>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="flex mb-6 border-b border-gray-200">
+            <button id="tab-assessment" class="px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600">New Assessment</button>
+            <button id="tab-history" class="px-4 py-2 font-medium text-gray-500 hover:text-gray-700">History</button>
+        </div>
+
+        <!-- Assessment Form Container (Default View) -->
+        <div id="assessment-container" class="bg-white rounded-lg shadow-md p-6">
+            <!-- Form Progress Bar -->
+            <div class="mb-6">
+                <div class="flex justify-between mb-2">
+                    <span id="step-indicator" class="text-sm font-medium text-blue-600">Step 1 of 4</span>
+                    <span id="form-progress-percent" class="text-sm font-medium text-blue-600">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Step 1: Patient Information -->
+            <div id="step-1" class="step-content">
+                <h2 class="text-xl font-semibold mb-4">Patient Information</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="patient-name" class="block mb-2 text-sm font-medium text-gray-900">Full Name</label>
+                        <input type="text" id="patient-name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="John Doe">
+                    </div>
+                    <div>
+                        <label for="patient-age" class="block mb-2 text-sm font-medium text-gray-900">Age</label>
+                        <input type="number" id="patient-age" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="35" min="0" max="120">
+                    </div>
+                    <div>
+                        <label for="patient-gender" class="block mb-2 text-sm font-medium text-gray-900">Gender</label>
+                        <select id="patient-gender" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                            <option value="" selected>Select</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="non-binary">Non-binary</option>
+                            <option value="other">Other</option>
+                            <option value="prefer-not-to-say">Prefer not to say</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="patient-conditions" class="block mb-2 text-sm font-medium text-gray-900">Existing Conditions (Optional)</label>
+                        <input type="text" id="patient-conditions" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="e.g., diabetes, asthma">
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button id="next-1" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Next</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Symptoms Description -->
+            <div id="step-2" class="step-content hidden">
+                <h2 class="text-xl font-semibold mb-4">Symptom Description</h2>
+                
+                <div class="mb-4">
+                    <label for="symptom-description" class="block mb-2 text-sm font-medium text-gray-900">Describe your symptoms</label>
+                    <textarea id="symptom-description" rows="4" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Describe your symptoms in detail..."></textarea>
+                </div>
+                
+                <div class="flex items-center space-x-4 mb-6">
+                    <button id="record-button" class="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg">
+                        <i class="fas fa-microphone mr-2"></i>
+                        <span id="record-button-text">Record Voice</span>
+                    </button>
+                    <div id="recording-status" class="hidden text-sm text-gray-500">
+                        <i class="fas fa-circle text-red-500 mr-1"></i>
+                        Recording...
+                    </div>
+                </div>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="symptom-duration" class="block mb-2 text-sm font-medium text-gray-900">Duration</label>
+                        <select id="symptom-duration" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                            <option value="less than a day">Less than a day</option>
+                            <option value="1 day">1 day</option>
+                            <option value="2-3 days">2-3 days</option>
+                            <option value="4-7 days" selected>4-7 days</option>
+                            <option value="1-2 weeks">1-2 weeks</option>
+                            <option value="more than 2 weeks">More than 2 weeks</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block mb-2 text-sm font-medium text-gray-900">Severity (1-10)</label>
+                        <div class="relative pt-4">
+                            <div class="flex justify-between absolute w-full bottom-5">
+                                <span class="severity-marker">1</span>
+                                <span class="severity-marker left-1/4">3</span>
+                                <span class="severity-marker left-1/2">5</span>
+                                <span class="severity-marker left-3/4">7</span>
+                                <span class="severity-marker right-0">10</span>
+                            </div>
+                            <input type="range" id="symptom-severity" min="1" max="10" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex justify-between">
+                    <button id="prev-2" class="text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Back</button>
+                    <button id="next-2" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Next</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Confirmation -->
+            <div id="step-3" class="step-content hidden">
+                <h2 class="text-xl font-semibold mb-4">Confirm Your Information</h2>
+                
+                <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                    <h3 class="font-medium text-lg mb-2">Patient Details</h3>
+                    <p id="confirm-name" class="text-gray-600"><span class="font-medium">Name:</span> <span class="font-light">John Doe</span></p>
+                    <p id="confirm-age" class="text-gray-600"><span class="font-medium">Age:</span> <span class="font-light">35</span></p>
+                    <p id="confirm-gender" class="text-gray-600"><span class="font-medium">Gender:</span> <span class="font-light">Male</span></p>
+                    <p id="confirm-conditions" class="text-gray-600"><span class="font-medium">Conditions:</span> <span class="font-light">None</span></p>
+                    
+                    <h3 class="font-medium text-lg mt-4 mb-2">Symptom Details</h3>
+                    <p id="confirm-symptoms" class="text-gray-600"><span class="font-medium">Symptoms:</span> <span class="font-light">Headache and dizziness</span></p>
+                    <p id="confirm-duration" class="text-gray-600"><span class="font-medium">Duration:</span> <span class="font-light">4-7 days</span></p>
+                    <p id="confirm-severity" class="text-gray-600"><span class="font-medium">Severity:</span> <span class="font-light">5/10</span></p>
+                </div>
+                
+                <div class="flex items-center mb-4">
+                    <input id="agree-terms" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="agree-terms" class="ml-2 text-sm font-medium text-gray-900">I understand this is not a replacement for professional medical care</label>
+                </div>
+                
+                <div class="mt-6 flex justify-between">
+                    <button id="prev-3" class="text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Back</button>
+                    <button id="next-3" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:opacity-50" disabled>Submit Assessment</button>
+                </div>
+            </div>
+
+            <!-- Step 4: Results (Initially Hidden) -->
+            <div id="step-4" class="step-content hidden">
+                <!-- Loading State -->
+                <div id="loading-results" class="text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 mb-4"></div>
+                    <h2 class="text-2xl font-semibold mb-2">Analyzing Symptoms</h2>
+                    <p class="text-gray-600">Our AI is reviewing your symptoms to provide the best recommendation...</p>
+                </div>
+                
+                <!-- Results Content -->
+                <div id="results-content" class="hidden">
+                    <div class="text-center mb-6">
+                        <h2 class="text-2xl font-semibold mb-2">Assessment Results</h2>
+                        <p id="patient-name-display" class="text-gray-600">For: John Doe, 35</p>
+                    </div>
+                    
+                    <!-- Urgency Card -->
+                    <div class="max-w-md mx-auto mb-8">
+                        <div id="urgency-card" class="bg-white rounded-xl shadow-md overflow-hidden">
+                            <div class="p-6">
+                                <div id="urgency-display" class="flex items-center justify-center text-white rounded-full h-24 w-24 mx-auto mb-4">
+                                    <span class="text-2xl font-bold">Low</span>
+                                </div>
+                                <h3 class="text-xl font-semibold text-center mb-2">Urgency Level</h3>
+                                <p id="urgency-description" class="text-gray-600 text-center">Based on your symptoms, your condition appears to be mild.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recommendation Card -->
+                    <div class="bg-blue-50 rounded-lg p-4 mb-6">
+                        <h3 class="text-lg font-semibold mb-2 text-blue-800"><i class="fas fa-lightbulb mr-2"></i> Recommended Action</h3>
+                        <p id="recommendation-text" class="text-gray-700">You should monitor your symptoms and consult your primary care physician if symptoms persist or worsen.</p>
+                    </div>
+                    
+                    <!-- Self-Care Card -->
+                    <div class="bg-green-50 rounded-lg p-4 mb-6">
+                        <h3 class="text-lg font-semibold mb-2 text-green-800"><i class="fas fa-heart mr-2"></i> Self-Care Suggestions</h3>
+                        <ul id="self-care-text" class="list-disc pl-5 text-gray-700 space-y-1">
+                            <li>Rest and stay hydrated</li>
+                            <li>Use over-the-counter pain relievers if needed</li>
+                            <li>Apply a cold compress to your forehead</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex flex-col space-y-3 md:flex-row md:space-y-0 md:space-x-3 justify-center mt-6">
+                        <button id="new-assessment" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Start New Assessment</button>
+                        <button id="export-pdf" class="text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Export to PDF</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Container (Initially Hidden) -->
+        <div id="history-container" class="hidden bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Assessment History</h2>
+            
+            <div id="history-empty" class="text-center py-8">
+                <i class="fas fa-history text-gray-300 text-5xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-600 mb-2">No assessments yet</h3>
+                <p class="text-gray-500">Complete your first assessment to see history here.</p>
+            </div>
+            
+            <div id="history-list" class="space-y-4 hidden">
+                <!-- History items will be added here dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- History Item Modal -->
+    <div id="history-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold">Assessment Details</h3>
+                    <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                    <h4 class="font-medium text-lg mb-2">Patient Details</h4>
+                    <p id="modal-name" class="text-gray-600"><span class="font-medium">Name:</span> <span class="font-light">John Doe</span></p>
+                    <p id="modal-age" class="text-gray-600"><span class="font-medium">Age:</span> <span class="font-light">35</span></p>
+                    <p id="modal-gender" class="text-gray-600"><span class="font-medium">Gender:</span> <span class="font-light">Male</span></p>
+                    <p id="modal-conditions" class="text-gray-600"><span class="font-medium">Conditions:</span> <span class="font-light">None</span></p>
+                    
+                    <h4 class="font-medium text-lg mt-4 mb-2">Symptom Details</h4>
+                    <p id="modal-symptoms" class="text-gray-600"><span class="font-medium">Symptoms:</span> <span class="font-light">Headache and dizziness</span></p>
+                    <p id="modal-duration" class="text-gray-600"><span class="font-medium">Duration:</span> <span class="font-light">4-7 days</span></p>
+                    <p id="modal-severity" class="text-gray-600"><span class="font-medium">Severity:</span> <span class="font-light">5/10</span></p>
+                    <p id="modal-timestamp" class="text-gray-600"><span class="font-medium">Date:</span> <span class="font-light">June 10, 2023, 2:30 PM</span></p>
+                </div>
+                
+                <div class="bg-blue-50 rounded-lg p-4 mb-4">
+                    <h4 class="text-lg font-semibold mb-2 text-blue-800">Recommended Action</h4>
+                    <p id="modal-recommendation" class="text-gray-700">You should monitor your symptoms and consult your primary care physician if symptoms persist or worsen.</p>
+                </div>
+                
+                <div class="bg-green-50 rounded-lg p-4">
+                    <h4 class="text-lg font-semibold mb-2 text-green-800">Self-Care Suggestions</h4>
+                    <ul id="modal-selfcare" class="list-disc pl-5 text-gray-700 space-y-1">
+                        <li>Rest and stay hydrated</li>
+                        <li>Use over-the-counter pain relievers if needed</li>
+                        <li>Apply a cold compress to your forehead</li>
+                    </ul>
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button id="modal-export" class="text-gray-900 bg-white border border-gray-300 hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center mr-2">Export</button>
+                    <button id="close-modal-btn" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const assessmentContainer = document.getElementById('assessment-container');
+        const historyContainer = document.getElementById('history-container');
+        const tabAssessment = document.getElementById('tab-assessment');
+        const tabHistory = document.getElementById('tab-history');
+        const historyList = document.getElementById('history-list');
+        const historyEmpty = document.getElementById('history-empty');
+        
+        // Step Elements
+        const stepContents = document.querySelectorAll('.step-content');
+        const stepIndicator = document.getElementById('step-indicator');
+        const progressBar = document.getElementById('progress-bar');
+        const progressPercent = document.getElementById('form-progress-percent');
+        const stepTexts = ['Step 1 of 4', 'Step 2 of 4', 'Step 3 of 4', 'Step 4 of 4'];
+        const progressValues = ['0%', '33%', '66%', '100%'];
+        
+        // Form Elements
+        const patientName = document.getElementById('patient-name');
+        const patientAge = document.getElementById('patient-age');
+        const patientGender = document.getElementById('patient-gender');
+        const patientConditions = document.getElementById('patient-conditions');
+        const symptomDescription = document.getElementById('symptom-description');
+        const symptomDuration = document.getElementById('symptom-duration');
+        const symptomSeverity = document.getElementById('symptom-severity');
+        const agreeTerms = document.getElementById('agree-terms');
+        const submitButton = document.getElementById('next-3');
+        
+        // Confirmation Elements
+        const confirmName = document.getElementById('confirm-name');
+        const confirmAge = document.getElementById('confirm-age');
+        const confirmGender = document.getElementById('confirm-gender');
+        const confirmConditions = document.getElementById('confirm-conditions');
+        const confirmSymptoms = document.getElementById('confirm-symptoms');
+        const confirmDuration = document.getElementById('confirm-duration');
+        const confirmSeverity = document.getElementById('confirm-severity');
+        
+        // Results Elements
+        const loadingResults = document.getElementById('loading-results');
+        const resultsContent = document.getElementById('results-content');
+        const urgencyCard = document.getElementById('urgency-display');
+        const urgencyDescription = document.getElementById('urgency-description');
+        const recommendationText = document.getElementById('recommendation-text');
+        const selfCareText = document.getElementById('self-care-text');
+        const patientNameDisplay = document.getElementById('patient-name-display');
+        
+        // Modal Elements
+        const historyModal = document.getElementById('history-modal');
+        const modalName = document.getElementById('modal-name');
+        const modalAge = document.getElementById('modal-age');
+        const modalGender = document.getElementById('modal-gender');
+        const modalConditions = document.getElementById('modal-conditions');
+        const modalSymptoms = document.getElementById('modal-symptoms');
+        const modalDuration = document.getElementById('modal-duration');
+        const modalSeverity = document.getElementById('modal-severity');
+        const modalTimestamp = document.getElementById('modal-timestamp');
+        const modalRecommendation = document.getElementById('modal-recommendation');
+        const modalSelfcare = document.getElementById('modal-selfcare');
+        
+        // Buttons
+        const next1 = document.getElementById('next-1');
+        const next2 = document.getElementById('next-2');
+        const prev2 = document.getElementById('prev-2');
+        const prev3 = document.getElementById('prev-3');
+        const newAssessment = document.getElementById('new-assessment');
+        const exportPDF = document.getElementById('export-pdf');
+        
+        // Voice Recording
+        const recordButton = document.getElementById('record-button');
+        const recordButtonText = document.getElementById('record-button-text');
+        const recordingStatus = document.getElementById('recording-status');
+        
+        // Variables
+        let currentStep = 0;
+        let assessments = JSON.parse(localStorage.getItem('assessments')) || [];
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let currentAssessmentId = null;
+        
+        // Initialize
+        updateHistoryView();
+        
+        // Event Listeners
+        tabAssessment.addEventListener('click', () => {
+            tabAssessment.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+            tabAssessment.classList.remove('text-gray-500', 'hover:text-gray-700');
+            tabHistory.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+            tabHistory.classList.add('text-gray-500', 'hover:text-gray-700');
+            assessmentContainer.classList.remove('hidden');
+            historyContainer.classList.add('hidden');
+        });
+        
+        tabHistory.addEventListener('click', () => {
+            tabHistory.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+            tabHistory.classList.remove('text-gray-500', 'hover:text-gray-700');
+            tabAssessment.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+            tabAssessment.classList.add('text-gray-500', 'hover:text-gray-700');
+            assessmentContainer.classList.add('hidden');
+            historyContainer.classList.remove('hidden');
+            updateHistoryView();
+        });
+        
+        next1.addEventListener('click', () => {
+            if (validateStep1()) {
+                goToStep(1);
+            }
+        });
+        
+        next2.addEventListener('click', () => {
+            if (validateStep2()) {
+                updateConfirmation();
+                goToStep(2);
+            }
+        });
+        
+        prev2.addEventListener('click', () => {
+            goToStep(0);
+        });
+        
+        prev3.addEventListener('click', () => {
+            goToStep(1);
+        });
+        
+        agreeTerms.addEventListener('change', () => {
+            submitButton.disabled = !agreeTerms.checked;
+        });
+        
+        submitButton.addEventListener('click', () => {
+            submitAssessment();
+        });
+        
+        newAssessment.addEventListener('click', () => {
+            resetForm();
+            goToStep(0);
+        });
+        
+        exportPDF.addEventListener('click', () => {
+            exportToPDF();
+        });
+        
+        // Voice Recording
+        recordButton.addEventListener('click', async () => {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        });
+        
+        // Functions
+        function validateStep1() {
+            if (!patientName.value.trim()) {
+                alert('Please enter patient name');
+                return false;
+            }
+            if (!patientAge.value) {
+                alert('Please enter patient age');
+                return false;
+            }
+            if (!patientGender.value) {
+                alert('Please select patient gender');
+                return false;
+            }
+            return true;
+        }
+        
+        function validateStep2() {
+            if (!symptomDescription.value.trim()) {
+                alert('Please describe your symptoms');
+                return false;
+            }
+            return true;
+        }
+        
+        function goToStep(step) {
+            if (step < 0 || step > 3) return;
+            
+            currentStep = step;
+            stepContents.forEach((content, index) => {
+                if (index === step) {
+                    content.classList.remove('hidden');
+                } else {
+                    content.classList.add('hidden');
+                }
+            });
+            
+            stepIndicator.textContent = stepTexts[step];
+            progressBar.style.width = progressValues[step];
+            progressPercent.textContent = progressValues[step];
+        }
+        
+        function updateConfirmation() {
+            confirmName.innerHTML = '<span class="font-medium">Name:</span> ' + (patientName.value.trim() || 'Not provided');
+            confirmAge.innerHTML = '<span class="font-medium">Age:</span> ' + patientAge.value;
+            confirmGender.innerHTML = '<span class="font-medium">Gender:</span> ' + (patientGender.options[patientGender.selectedIndex].text || 'Not provided');
+            confirmConditions.innerHTML = '<span class="font-medium">Conditions:</span> ' + (patientConditions.value.trim() || 'None');
+            confirmSymptoms.innerHTML = '<span class="font-medium">Symptoms:</span> ' + symptomDescription.value.trim();
+            confirmDuration.innerHTML = '<span class="font-medium">Duration:</span> ' + symptomDuration.options[symptomDuration.selectedIndex].text;
+            confirmSeverity.innerHTML = '<span class="font-medium">Severity:</span> ' + symptomSeverity.value + '/10';
+        }
+        
+        function submitAssessment() {
+            // Show loading state
+            goToStep(3);
+            loadingResults.classList.remove('hidden');
+            resultsContent.classList.add('hidden');
+            
+            // Simulate API call delay (would be replaced with actual API call)
+            setTimeout(() => {
+                // Process the assessment (in a real app, this would call an API)
+                processAssessment();
+                
+                // Hide loading and show results
+                loadingResults.classList.add('hidden');
+                resultsContent.classList.remove('hidden');
+                
+                // Update progress bar to 100%
+                progressBar.style.width = '100%';
+                progressPercent.textContent = '100%';
+            }, 3000);
+        }
+        
+        function processAssessment() {
+            // Generate a random urgency level for demo purposes
+            const random = Math.random();
+            let urgencyLevel, urgencyColor, bgColor;
+            
+            if (random < 0.33) {
+                urgencyLevel = 'Low';
+                urgencyColor = 'text-green-600';
+                bgColor = 'bg-green-100';
+            } else if (random < 0.66) {
+                urgencyLevel = 'Moderate';
+                urgencyColor = 'text-yellow-600';
+                bgColor = 'bg-yellow-100';
+            } else {
+                urgencyLevel = 'High';
+                urgencyColor = 'text-red-600';
+                bgColor = 'bg-red-100';
+            }
+            
+            // Update UI with results
+            urgencyCard.className = `flex items-center justify-center text-white rounded-full h-24 w-24 mx-auto mb-4 ${bgColor}`;
+            urgencyCard.innerHTML = `<span class="text-2xl font-bold ${urgencyColor}">${urgencyLevel}</span>`;
+            
+            patientNameDisplay.textContent = `For: ${patientName.value.trim() || 'Patient'}, ${patientAge.value}`;
+            
+            // Generate recommendations (this would come from GPT-4 API in real app)
+            const recommendations = {
+                Low: {
+                    action: 'Your symptoms suggest a mild condition. Consider monitoring symptoms and consulting a healthcare provider if symptoms persist or worsen.',
+                    selfCare: [
+                        'Rest and stay hydrated',
+                        'Use over-the-counter pain relievers as directed if needed',
+                        'Apply a cold compress if you have localized pain or swelling'
+                    ]
+                },
+                Moderate: {
+                    action: 'Your symptoms may require medical attention. Consider scheduling an appointment with your healthcare provider in the next 24-48 hours.',
+                    selfCare: [
+                        'Monitor your symptoms closely for any changes',
+                        'Rest and avoid strenuous activities',
+                        'Stay hydrated and consider using over-the-counter remedies as appropriate'
+                    ]
+                },
+                High: {
+                    action: 'Your symptoms suggest a potentially serious condition. Seek medical attention promptly, either by contacting your healthcare provider immediately or visiting urgent care.',
+                    selfCare: [
+                        'Seek medical attention immediately',
+                        'Avoid any activities that could worsen your condition',
+                        'Have someone monitor you if symptoms are severe'
+                    ]
+                }
+            }[urgencyLevel];
+            
+            urgencyDescription.textContent = `Based on your symptoms, your condition appears to be ${urgencyLevel.toLowerCase()} urgency.`;
+            recommendationText.textContent = recommendations.action;
+            
+            // Clear previous self-care items
+            selfCareText.innerHTML = '';
+            
+            // Add new self-care items
+            recommendations.selfCare.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                selfCareText.appendChild(li);
+            });
+            
+            // Save assessment to history
+            const assessment = {
+                id: Date.now(),
+                name: patientName.value.trim(),
+                age: patientAge.value,
+                gender: patientGender.options[patientGender.selectedIndex].text,
+                existing_conditions: patientConditions.value.trim(),
+                symptoms: symptomDescription.value.trim(),
+                duration: symptomDuration.options[symptomDuration.selectedIndex].text,
+                severity: symptomSeverity.value,
+                urgency: urgencyLevel,
+                recommendation: recommendations.action,
+                self_care: recommendations.selfCare.join('\n'),
+                timestamp: new Date().toLocaleString()
+            };
+            
+            assessments.unshift(assessment);
+            localStorage.setItem('assessments', JSON.stringify(assessments));
+            currentAssessmentId = assessment.id;
+            
+            // Update history view
+            updateHistoryView();
+        }
+        
+        function updateHistoryView() {
+            if (assessments.length === 0) {
+                historyEmpty.classList.remove('hidden');
+                historyList.classList.add('hidden');
+            } else {
+                historyEmpty.classList.add('hidden');
+                historyList.classList.remove('hidden');
+                
+                // Clear existing history items
+                historyList.innerHTML = '';
+                
+                // Add assessments to history
+                assessments.forEach(assessment => {
+                    const urgencyColors = {
+                        'Low': 'bg-green-100 text-green-800',
+                        'Moderate': 'bg-yellow-100 text-yellow-800',
+                        'High': 'bg-red-100 text-red-800'
+                    };
+                    
+                    const item = document.createElement('div');
+                    item.className = 'bg-white border border-gray-200 rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer';
+                    item.dataset.id = assessment.id;
+                    item.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-medium">${assessment.name || 'Anonymous'}, ${assessment.age}</h3>
+                                <p class="text-sm text-gray-600">${assessment.symptoms.substring(0, 30)}${assessment.symptoms.length > 30 ? '...' : ''}</p>
+                                <p class="text-xs text-gray-500 mt-1">${assessment.timestamp}</p>
+                            </div>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${urgencyColors[assessment.urgency]}">
+                                ${assessment.urgency}
+                            </span>
+                        </div>
+                    `;
+                    
+                    item.addEventListener('click', () => viewAssessment(assessment.id));
+                    historyList.appendChild(item);
+                });
+            }
+        }
+        
+        function viewAssessment(id) {
+            const assessment = assessments.find(a => a.id === id);
+            if (!assessment) return;
+            
+            modalName.innerHTML = '<span class="font-medium">Name:</span> <span class="font-light">' + (assessment.name || 'Not provided') + '</span>';
+            modalAge.innerHTML = '<span class="font-medium">Age:</span> <span class="font-light">' + assessment.age + '</span>';
+            modalGender.innerHTML = '<span class="font-medium">Gender:</span> <span class="font-light">' + (assessment.gender || 'Not provided') + '</span>';
+            modalConditions.innerHTML = '<span class="font-medium">Conditions:</span> <span class="font-light">' + (assessment.existing_conditions || 'None') + '</span>';
+            modalSymptoms.innerHTML = '<span class="font-medium">Symptoms:</span> <span class="font-light">' + assessment.symptoms + '</span>';
+            modalDuration.innerHTML = '<span class="font-medium">Duration:</span> <span class="font-light">' + assessment.duration + '</span>';
+            modalSeverity.innerHTML = '<span class="font-medium">Severity:</span> <span class="font-light">' + assessment.severity + '/10</span>';
+            modalTimestamp.innerHTML = '<span class="font-medium">Date:</span> <span class="font-light">' + assessment.timestamp + '</span>';
+            modalRecommendation.textContent = assessment.recommendation;
+            
+            // Clear previous self-care items
+            modalSelfcare.innerHTML = '';
+            
+            // Add new self-care items
+            assessment.self_care.split('\n').forEach(item => {
+                if (item.trim()) {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    modalSelfcare.appendChild(li);
+                }
+            });
+            
+            // Show modal
+            historyModal.classList.remove('hidden');
+            
+            // Set the export button to use this assessment
+            const modalExport = document.getElementById('modal-export');
+            modalExport.onclick = () => exportToPDF(id);
+            
+            // Set the close button
+            const closeModal = document.getElementById('close-modal');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            
+            closeModal.onclick = () => historyModal.classList.add('hidden');
+            closeModalBtn.onclick = () => historyModal.classList.add('hidden');
+        }
+        
+        function resetForm() {
+            patientName.value = '';
+            patientAge.value = '';
+            patientGender.selectedIndex = 0;
+            patientConditions.value = '';
+            symptomDescription.value = '';
+            symptomDuration.selectedIndex = 3; // Default to "4-7 days"
+            symptomSeverity.value = 5;
+            agreeTerms.checked = false;
+            submitButton.disabled = true;
+            
+            // Reset record button
+            if (isRecording) stopRecording();
+            recordButtonText.textContent = 'Record Voice';
+            recordingStatus.classList.add('hidden');
+            
+            currentAssessmentId = null;
+        }
+        
+        function exportToPDF(id = null) {
+            let assessment;
+            
+            if (id) {
+                // Exporting from history
+                assessment = assessments.find(a => a.id === id);
+            } else if (currentAssessmentId) {
+                // Exporting current assessment
+                assessment = assessments.find(a => a.id === currentAssessmentId);
+            } else {
+                alert('No assessment to export');
+                return;
+            }
+            
+            // In a real app, this would generate an actual PDF
+            // For this demo, we'll just show an alert with the content that would be exported
+            const pdfContent = `
+                CrowdCure Assessment Report
+                -------------------------------------
+                
+                Patient Information:
+                Name: ${assessment.name || 'Not provided'}
+                Age: ${assessment.age}
+                Gender: ${assessment.gender || 'Not provided'}
+                Existing Conditions: ${assessment.existing_conditions || 'None'}
+                
+                Symptoms:
+                Description: ${assessment.symptoms}
+                Duration: ${assessment.duration}
+                Severity: ${assessment.severity}/10
+                
+                Assessment:
+                Urgency Level: ${assessment.urgency}
+                Recommendation: ${assessment.recommendation}
+                
+                Self-Care Suggestions:
+                ${assessment.self_care.split('\n').map(item => `- ${item}`).join('\n')}
+                
+                Assessment Date: ${assessment.timestamp}
+                
+                Disclaimer: This is not a replacement for professional medical advice.
+            `;
+            
+            alert('PDF would be generated with the following content:\n\n' + pdfContent);
+            
+            /*
+            // Example using jsPDF (commented out for this demo)
+            const doc = new jsPDF();
+            doc.text('CrowdCure Assessment Report', 20, 20);
+            doc.text(`Patient Name: ${assessment.name}`, 20, 30);
+            // ... more content ...
+            doc.save(`crowdcure-assessment-${assessment.id}.pdf`);
+            */
+        }
+        
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (e) => {
+                    audioChunks.push(e.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    
+                    // In a real app, you would send this to Whisper API for transcription
+                    // For this demo, we'll simulate transcription after a delay
+                    
+                    // Show loading state
+                    recordingStatus.innerHTML = '<i class="fas fa-spinner animate-spin mr-1"></i> Transcribing...';
+                    
+                    setTimeout(() => {
+                        // Simulate transcription result
+                        const transcript = "Simulated transcription of your symptoms. In a real app, this would come from Whisper API.";
+                        
+                        // Append to symptom description
+                        if (symptomDescription.value.trim()) {
+                            symptomDescription.value += '\n\n' + transcript;
+                        } else {
+                            symptomDescription.value = transcript;
+                        }
+                        
+                        // Reset recording UI
+                        recordButtonText.textContent = 'Record Voice';
+                        recordingStatus.classList.add('hidden');
+                        stream.getTracks().forEach(track => track.stop());
+                    }, 2000);
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                recordButtonText.textContent = 'Stop Recording';
+                recordingStatus.classList.remove('hidden');
+                recordingStatus.innerHTML = '<i class="fas fa-circle text-red-500 mr-1"></i> Recording...';
+                
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                alert('Could not access microphone. Please ensure you have granted microphone permissions.');
+                isRecording = false;
+                recordButtonText.textContent = 'Record Voice';
+                recordingStatus.classList.add('hidden');
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                isRecording = false;
+            }
+        }
+    </script>
+</body>
+</html>
